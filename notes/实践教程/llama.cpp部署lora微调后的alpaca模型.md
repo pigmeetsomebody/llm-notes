@@ -13,15 +13,23 @@ python merge_llama3_with_chinese_lora_low_mem.py --base_model /data/share/Meta-L
 
 ![](../../assets/merge_lora_model.png)
 
-### 转化为gruff
+### 转化为guff
 
 ```shell
 python convert_lora_to_gguf.py --outfile  ~/stanford_alpaca/gguf_outpsut --outtype bf16 --verbose --base /data/share/Meta-Llama-3-8B-Instruct --lora_path ~/stanford_alpaca/output 
 ```
 
+尝试直接使用convert_lora_to_gguf脚本失败：
+
+使用convert_hf_to_gguf.py脚本
+
+```shell
+python convert_hf_to_gguf.py --model ~/Chinese-LLaMA-Alpaca-3/scripts/merged_model
+```
+
 ![](../../assets/convert_to_gguf.png)
 
-转换完成，模型大小为16.1G
+转换完成，模型大小为16.1G, 路径为`~/Chinese-LLaMA-Alpaca-3/scripts/merged_model/Merged_Model-8.0B-F16.gguf`
 
 ## llama.cpp构建
 
@@ -77,12 +85,23 @@ cmake --build build --config Release
 
 ```shell
 # Use `CUDA_VISIBLE_DEVICES` to hide the first compute device.
-CUDA_VISIBLE_DEVICES="-0" ./build/bin/llama-server --model /srv/models/llama.gguf
+CUDA_VISIBLE_DEVICES="0" ./build/bin/llama-server --model /srv/models/llama.gguf
 ```
 
 chatbot界面：
 
 ![](../../assets/llama_example.png)
+
+### 命令行模式
+
+使用命令llama-cli启动命令行对话模式:
+```shell
+./build/bin/llama-cli -m /home/zhuyy/Chinese-LLaMA-Alpaca-3/scripts/merged_model/Merged_Model-8.0B-F16.gguf
+```
+
+
+
+
 
 ## 问题
 
@@ -191,3 +210,39 @@ $$
 4. **评估方式偏差**：  
    - 某些能力需特定评测方式（如开放式生成任务）才能显现。  
 
+------
+
+**6.LM head**
+
+在大语言模型中，**LM head**（Language Model Head）是模型架构中的一个关键组件，负责将模型最后一层输出的隐藏状态转换为词汇表上的概率分布，从而实现对下一个词（token）的预测。以下是详细解释：
+
+**LM Head 的核心作用**
+
+- **功能定位**：LM Head 位于模型的顶层（通常是最后一层Transformer块之后），是一个线性变换层（全连接层）。它将模型输出的隐藏状态（维度为 `d_model`）映射到词汇表大小的向量（维度为 `vocab_size``）。
+- **概率生成**：输出的向量经过 Softmax 归一化后，表示词汇表中每个词作为下一个词的概率（即生成 `P(token | context)`）。
+- **训练目标**：在预训练阶段，模型通过交叉熵损失函数，优化 LM Head 输出的概率分布与真实标签（下一个词）之间的差距。
+
+**2. LM Head 的结构**
+
+- **典型实现**：通常是一个简单的线性层（如 `nn.Linear(d_model, vocab_size)`）。
+- **示例（以GPT为例）**：
+  ```python
+  # 伪代码示例
+  hidden_states = transformer(input_ids)  # 经过多层Transformer处理后的输出
+  logits = lm_head(hidden_states)        # 线性层映射到词汇表大小
+  probs = softmax(logits)                # 转换为概率分布
+  ```
+
+**3. 与其他模型组件的区别**
+
+- **与注意力头（Attention Heads）的区别**：注意力头是Transformer内部用于捕捉不同位置间依赖关系的机制（如多头注意力），而 LM Head 是模型顶端的输出层。
+- **与任务特定头（Task-Specific Heads）的区别**：LM Head 专为语言模型任务设计（生成下一个词），而其他任务（如分类、实体识别）可能需要不同的头部结构。
+
+**4. 实际应用中的变体**
+
+- **无 Softmax 的 LM Head**：某些实现（如使用交叉熵损失时）可能省略显式的 Softmax 层，因为损失函数内部已包含对数概率计算。
+- **参数共享**：部分模型（如BERT）会将词嵌入矩阵（Token Embedding）与 LM Head 的权重共享，以减少参数量并提升训练稳定性。
+
+**5. 总结**
+
+LM Head 是大语言模型生成能力的核心组件，通过将高维隐藏状态映射到词汇空间，实现语言模型的本质目标：**基于上下文预测下一个词的概率分布**。它在预训练和生成任务（如文本续写、翻译、对话）中均起到关键作用。
