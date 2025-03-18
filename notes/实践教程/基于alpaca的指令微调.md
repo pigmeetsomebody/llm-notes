@@ -24,6 +24,11 @@
    或在终端中临时设置：  
    ```bash
    export HF_ENDPOINT=https://hf-mirror.com
+   # 设置镜像源环境变量
+   export HF_ENDPOINT=https://hf-mirror.com
+   
+   # 通过CLI工具下载完整模型（包含LFS文件）
+   huggingface-cli download --resume-download --local-dir-use-symlinks False THUDM/chatglm3-6b
    ```
    确保镜像地址包含 `https://` 前缀，否则可能报错。
 
